@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Grocery Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            background: #0a0f1e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Animated background blobs */
+        .bg-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: floatBlob 8s ease-in-out infinite;
+            pointer-events: none;
+        }
+        .blob1 { width: 500px; height: 500px; background: #198754; top: -150px; left: -150px; animation-delay: 0s; }
+        .blob2 { width: 400px; height: 400px; background: #0d6efd; bottom: -100px; right: -100px; animation-delay: 3s; }
+        .blob3 { width: 300px; height: 300px; background: #6f42c1; top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: 1.5s; }
+
+        @keyframes floatBlob {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33%       { transform: translate(30px, -30px) scale(1.05); }
+            66%       { transform: translate(-20px, 20px) scale(0.95); }
+        }
+
+        /* Grid overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+        }
+
+        /* Main wrapper */
+        .login-wrapper {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 2.75rem 2.5rem;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5),
+                        inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        /* Logo */
+        .logo-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+        .logo-circle {
+            width: 60px; height: 60px;
+            background: linear-gradient(135deg, #198754, #0d5c38);
+            border-radius: 18px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 8px 24px rgba(25,135,84,0.45);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%,100% { box-shadow: 0 8px 24px rgba(25,135,84,0.45); }
+            50%      { box-shadow: 0 8px 36px rgba(25,135,84,0.7); }
+        }
+        .logo-circle i { font-size: 1.7rem; color: white; }
+        .logo-text { margin-left: 14px; }
+        .logo-text h1 { font-size: 1.15rem; font-weight: 700; color: white; line-height: 1.2; }
+        .logo-text span { font-size: 0.75rem; color: rgba(255,255,255,0.45); }
+
+        /* Headings */
+        .welcome-title {
+            font-size: 1.65rem; font-weight: 700;
+            color: white; text-align: center; margin-bottom: 8px;
+        }
+        .welcome-sub {
+            font-size: 0.875rem; color: rgba(255,255,255,0.45);
+            text-align: center; margin-bottom: 2.25rem; line-height: 1.5;
+        }
+
+        /* Error box */
+        .error-box {
+            background: rgba(220,53,69,0.15);
+            border: 1px solid rgba(220,53,69,0.3);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.82rem; color: #f87171;
+            margin-bottom: 1.25rem;
+            display: none;
+            align-items: center; gap: 8px;
+        }
+
+        /* Google button */
+        .btn-google {
+            width: 100%;
+            background: white;
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            color: #1a1a1a;
+            font-size: 0.95rem; font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            margin-bottom: 1.5rem;
+        }
+        .btn-google:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        .btn-google:active { transform: translateY(0); }
+        .btn-google:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        .btn-google img { width: 22px; height: 22px; }
+
+        /* Spinner inside button */
+        .btn-spinner {
+            width: 20px; height: 20px;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-top-color: #1a1a1a;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Security note */
+        .security-note {
+            background: rgba(25,135,84,0.1);
+            border: 1px solid rgba(25,135,84,0.2);
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex; align-items: flex-start; gap: 10px;
+        }
+        .security-note i { color: #4ade80; font-size: 1rem; margin-top: 1px; flex-shrink: 0; }
+        .security-note p { font-size: 0.78rem; color: rgba(255,255,255,0.5); line-height: 1.5; margin: 0; }
+        .security-note strong { color: rgba(255,255,255,0.75); }
+
+        /* Footer text */
+        .footer-text {
+            text-align: center;
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.25);
+            margin-top: 1.5rem;
+        }
+
+        @media (max-width: 480px) {
+            .login-card { padding: 2rem 1.5rem; }
+            .welcome-title { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-blob blob1"></div>
+<div class="bg-blob blob2"></div>
+<div class="bg-blob blob3"></div>
+
+<div class="login-wrapper">
+    <div class="login-card">
+
+        <!-- Logo -->
+        <div class="logo-wrap">
+            <div class="logo-circle"><i class="bi bi-cart3"></i></div>
+            <div class="logo-text">
+                <h1>Grocery MS</h1>
+                <span>Admin Panel</span>
+            </div>
+        </div>
+
+        <!-- Heading -->
+        <div class="welcome-title">Welcome back</div>
+        <div class="welcome-sub">Sign in with your Google account<br>to access the admin dashboard</div>
+
+        <!-- Error box -->
+        <div class="error-box" id="errorBox">
+            <i class="bi bi-exclamation-circle"></i>
+            <span id="errorMsg"></span>
+        </div>
+
+        <!-- Google Sign In -->
+        <button class="btn-google" id="googleBtn" onclick="signInWithGoogle()">
+            <div class="btn-spinner" id="googleSpinner"></div>
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google" id="googleIcon">
+            <span id="googleBtnText">Sign in with Google</span>
+        </button>
+
+        <!-- Security note -->
+        <div class="security-note">
+            <i class="bi bi-shield-check"></i>
+            <p>
+                <strong>Restricted access.</strong> Only authorized Google accounts
+                can access this system. Contact your administrator if you need access.
+            </p>
+        </div>
+
+        <div class="footer-text">
+            Grocery Management System &copy; 2026
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    const SUPABASE_URL = "https://ebnsnfmohcnjptkxufjf.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVibnNuZm1vaGNuanB0a3h1ZmpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTkzMTMsImV4cCI6MjA5NDgzNTMxM30.GbDJ0gZFJhbF5oGek2JRVug6_Ha1EMY9z5Gy4rIpf-M";
+
+    const { createClient } = supabase;
+    const supabaseClient   = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Check if already logged in
+    async function checkSession() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) window.location.href = "index.html";
+    }
+
+    // Google OAuth
+    async function signInWithGoogle() {
+        const btn     = document.getElementById("googleBtn");
+        const spinner = document.getElementById("googleSpinner");
+        const icon    = document.getElementById("googleIcon");
+        const text    = document.getElementById("googleBtnText");
+
+        btn.disabled          = true;
+        spinner.style.display = "block";
+        icon.style.display    = "none";
+        text.textContent      = "Connecting to Google...";
+
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+                redirectTo: window.location.origin +
+                    window.location.pathname.replace("login.html", "index.html")
+            }
+        });
+
+        if (error) {
+            btn.disabled          = false;
+            spinner.style.display = "none";
+            icon.style.display    = "block";
+            text.textContent      = "Sign in with Google";
+            showError("Sign in failed: " + error.message);
+        }
+    }
+
+    function showError(msg) {
+        const box = document.getElementById("errorBox");
+        document.getElementById("errorMsg").textContent = msg;
+        box.style.display = "flex";
+    }
+
+    checkSession();
+
+    // Handle OAuth redirect
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_IN" && session) {
+            window.location.href = "index.html";
+        }
+    });
+</script>
+</body>
+</html>

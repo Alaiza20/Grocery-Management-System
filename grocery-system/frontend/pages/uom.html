@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UOM — Grocery MS</title>
+    <script>(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('gms-theme')||'dark'); })();</script>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+
+<div id="gms-navbar"></div>
+
+<div class="page-wrap">
+    <div class="page-header animate-in">
+        <h4><i class="bi bi-rulers"></i> Unit of Measure</h4>
+        <p>Manage measurement units — kg, litre, piece, dozen and more</p>
+    </div>
+
+    <div id="alertBox" class="gms-alert d-none"></div>
+
+    <div class="two-col">
+
+        <!-- TABLE -->
+        <div class="g-card animate-in">
+            <div class="g-card-header">
+                <div class="g-card-title"><i class="bi bi-table"></i> All Units</div>
+                <span class="gms-badge badge-neutral" id="totalCount">0 records</span>
+            </div>
+            <div style="overflow-x:auto">
+                <table class="g-table">
+                    <thead>
+                        <tr>
+                            <th style="width:70px">ID</th>
+                            <th>Unit Name</th>
+                            <th>Created</th>
+                            <th style="width:110px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="uomTableBody">
+                        <tr><td colspan="4"><div class="empty-state">
+                            <i class="bi bi-hourglass-split"></i><p>Loading...</p>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- FORM -->
+        <div>
+            <div class="g-card animate-in">
+                <div class="g-card-header">
+                    <div class="g-card-title" id="formTitle">
+                        <i class="bi bi-plus-circle"></i> Add New Unit
+                    </div>
+                    <button class="gms-btn gms-btn-ghost gms-btn-sm d-none" id="cancelBtn" onclick="resetForm()">
+                        <i class="bi bi-x"></i> Cancel
+                    </button>
+                </div>
+                <div class="g-card-body">
+                    <input type="hidden" id="uomId">
+                    <div class="form-group">
+                        <label class="gms-label">Unit Name <span style="color:var(--red)">*</span></label>
+                        <input type="text" class="gms-input" id="uomName"
+                            placeholder="e.g. kg, litre, piece, dozen" maxlength="50">
+                        <span class="gms-hint">Must be unique. Examples: kg, gram, litre, ml, piece, dozen, pack</span>
+                    </div>
+                    <button class="gms-btn gms-btn-primary gms-btn-full" id="submitBtn" onclick="submitForm()">
+                        <i class="bi bi-check-circle"></i> Save Unit
+                    </button>
+                </div>
+            </div>
+
+            <div class="g-card animate-in" style="margin-top:16px">
+                <div class="g-card-body">
+                    <div style="font-family:var(--font-head);font-size:0.85rem;font-weight:700;color:var(--text-sec);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                        <i class="bi bi-info-circle" style="color:var(--accent)"></i> What is UOM?
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin:0;line-height:1.7">
+                        Unit of Measure defines how a product is sold.
+                        Rice → <strong style="color:var(--accent2)">kg</strong>,
+                        Milk → <strong style="color:var(--accent2)">litre</strong>,
+                        Eggs → <strong style="color:var(--accent2)">dozen</strong>.
+                        Every product must have a unit assigned to it.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/navbar.js"></script>
+<script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    async function init() {
+        await requireAuth();
+        buildNavbar('uom');
+        loadUOM();
+    }
+
+    async function loadUOM() {
+        try {
+            const res  = await fetch(`${API_BASE}/uom/`);
+            const data = await res.json();
+            renderTable(data);
+        } catch(e) { showAlert('Failed to load. Make sure Flask is running.', 'danger'); }
+    }
+
+    function renderTable(data) {
+        document.getElementById('totalCount').textContent = `${data.length} records`;
+        const tbody = document.getElementById('uomTableBody');
+        if (!data.length) {
+            tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><i class="bi bi-inbox"></i><p>No units yet. Add your first one.</p></div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.map(u => `
+            <tr>
+                <td><span class="badge-id">#${u.uom_id}</span></td>
+                <td><strong style="color:var(--text-pri)">${u.uom_name}</strong></td>
+                <td><small style="color:var(--text-muted)">${formatDate(u.created_at)}</small></td>
+                <td>
+                    <button class="gms-btn gms-btn-ghost gms-btn-sm gms-btn-icon me-1"
+                        onclick="editUOM(${u.uom_id},'${u.uom_name}')" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="gms-btn gms-btn-danger gms-btn-sm gms-btn-icon"
+                        onclick="deleteUOM(${u.uom_id},'${u.uom_name}')" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>`).join('');
+    }
+
+    async function submitForm() {
+        const id   = document.getElementById('uomId').value;
+        const name = document.getElementById('uomName').value.trim();
+        if (!name) { showAlert('Unit name is required.', 'warning'); return; }
+        try {
+            const res = await fetch(id ? `${API_BASE}/uom/${id}` : `${API_BASE}/uom/`, {
+                method: id ? 'PUT' : 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({uom_name: name})
+            });
+            if (res.ok) { showAlert(id ? 'Unit updated.' : 'Unit added.', 'success'); resetForm(); loadUOM(); }
+            else { const e = await res.json(); showAlert(e.error || 'Something went wrong.', 'danger'); }
+        } catch(e) { showAlert('Cannot connect to server.', 'danger'); }
+    }
+
+    function editUOM(id, name) {
+        document.getElementById('uomId').value  = id;
+        document.getElementById('uomName').value = name;
+        document.getElementById('formTitle').innerHTML = `<i class="bi bi-pencil" style="color:var(--gold)"></i> Edit Unit`;
+        document.getElementById('submitBtn').className = 'gms-btn gms-btn-warning gms-btn-full';
+        document.getElementById('submitBtn').innerHTML = `<i class="bi bi-check-circle"></i> Update Unit`;
+        document.getElementById('cancelBtn').classList.remove('d-none');
+        document.getElementById('uomName').focus();
+    }
+
+    async function deleteUOM(id, name) {
+        if (!confirm(`Delete "${name}"?`)) return;
+        try {
+            const res = await fetch(`${API_BASE}/uom/${id}`, {method:'DELETE'});
+            if (res.ok) { showAlert(`"${name}" deleted.`, 'success'); loadUOM(); }
+            else showAlert('Cannot delete — unit may be used by a product.', 'danger');
+        } catch(e) { showAlert('Cannot connect to server.', 'danger'); }
+    }
+
+    function resetForm() {
+        document.getElementById('uomId').value   = '';
+        document.getElementById('uomName').value = '';
+        document.getElementById('formTitle').innerHTML = `<i class="bi bi-plus-circle"></i> Add New Unit`;
+        document.getElementById('submitBtn').className = 'gms-btn gms-btn-primary gms-btn-full';
+        document.getElementById('submitBtn').innerHTML = `<i class="bi bi-check-circle"></i> Save Unit`;
+        document.getElementById('cancelBtn').classList.add('d-none');
+    }
+
+    function showAlert(msg, type) {
+        const icons = {success:'check-circle', warning:'exclamation-triangle', danger:'x-circle', info:'info-circle'};
+        const box = document.getElementById('alertBox');
+        box.className = `gms-alert ${type}`;
+        box.innerHTML = `<i class="bi bi-${icons[type]||'info-circle'}"></i> ${msg}`;
+        box.classList.remove('d-none');
+        setTimeout(() => box.classList.add('d-none'), 3500);
+    }
+
+    function formatDate(d) {
+        if (!d) return '—';
+        return new Date(d).toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'});
+    }
+
+    // Bootstrap me class fix
+    const style = document.createElement('style');
+    style.textContent = '.me-1{margin-right:4px}';
+    document.head.appendChild(style);
+
+    init();
+</script>
+</body>
+</html>

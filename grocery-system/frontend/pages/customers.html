@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customers — Grocery MS</title>
+    <script>(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('gms-theme')||'dark'); })();</script>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+
+<div id="gms-navbar"></div>
+
+<div class="page-wrap">
+    <div class="page-header animate-in">
+        <h4><i class="bi bi-people"></i> Customers</h4>
+        <p>Manage your store's customer records and contact information</p>
+    </div>
+
+    <div id="alertBox" class="gms-alert d-none"></div>
+
+    <div class="two-col">
+
+        <!-- TABLE -->
+        <div class="g-card animate-in">
+            <div class="g-card-header">
+                <div class="g-card-title"><i class="bi bi-table"></i> All Customers</div>
+                <span class="gms-badge badge-neutral" id="totalCount">0 records</span>
+            </div>
+            <div style="overflow-x:auto">
+                <table class="g-table">
+                    <thead>
+                        <tr>
+                            <th style="width:60px">ID</th>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>City</th>
+                            <th>Address</th>
+                            <th style="width:100px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersTableBody">
+                        <tr><td colspan="7"><div class="empty-state">
+                            <i class="bi bi-hourglass-split"></i><p>Loading...</p>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- FORM -->
+        <div>
+            <div class="g-card animate-in">
+                <div class="g-card-header">
+                    <div class="g-card-title" id="formTitle">
+                        <i class="bi bi-plus-circle"></i> Add New Customer
+                    </div>
+                    <button class="gms-btn gms-btn-ghost gms-btn-sm d-none" id="cancelBtn" onclick="resetForm()">
+                        <i class="bi bi-x"></i> Cancel
+                    </button>
+                </div>
+                <div class="g-card-body">
+                    <input type="hidden" id="customerId">
+
+                    <div class="form-group">
+                        <label class="gms-label">Customer Name <span style="color:var(--red)">*</span></label>
+                        <input type="text" class="gms-input" id="customerName"
+                            placeholder="e.g. Ahmed Ali" maxlength="150">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Phone</label>
+                        <input type="text" class="gms-input" id="customerPhone"
+                            placeholder="0300-1234567" maxlength="12"
+                            oninput="formatPhoneInput(this)">
+                        <span class="field-hint" id="phoneHint"><i class="bi bi-info-circle"></i> Format: 0300-1234567 (11 digits starting with 03)</span>
+                        <span class="field-hint error d-none" id="phoneError"><i class="bi bi-x-circle"></i> <span id="phoneErrorMsg"></span></span>
+                        <span class="field-hint success d-none" id="phoneSuccess"><i class="bi bi-check-circle"></i> Valid number</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Email</label>
+                        <input type="text" class="gms-input" id="customerEmail"
+                            placeholder="customer@example.com" maxlength="150"
+                            oninput="validateEmailLive(this)">
+                        <span class="field-hint" id="emailHint"><i class="bi bi-info-circle"></i> Must contain @ and a valid domain</span>
+                        <span class="field-hint error d-none" id="emailError"><i class="bi bi-x-circle"></i> Invalid email format</span>
+                        <span class="field-hint success d-none" id="emailSuccess"><i class="bi bi-check-circle"></i> Valid email address</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="gms-label">City</label>
+                        <select class="gms-input gms-select" id="customerCity">
+                            <option value="">-- Select City --</option>
+                            <option>Rawalpindi</option>
+                            <option>Islamabad</option>
+                            <option>Lahore</option>
+                            <option>Karachi</option>
+                            <option>Peshawar</option>
+                            <option>Quetta</option>
+                            <option>Multan</option>
+                            <option>Faisalabad</option>
+                            <option>Sialkot</option>
+                            <option>Gujranwala</option>
+                            <option>Hyderabad</option>
+                            <option>Abbottabad</option>
+                            <option>Bahawalpur</option>
+                            <option>Sargodha</option>
+                            <option>Sukkur</option>
+                            <option>Larkana</option>
+                            <option>Sheikhupura</option>
+                            <option>Rahim Yar Khan</option>
+                            <option>Jhang</option>
+                            <option>Gujrat</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Address</label>
+                        <textarea class="gms-input gms-textarea" id="customerAddress"
+                            rows="2" placeholder="Street, Area, etc."></textarea>
+                    </div>
+
+                    <button class="gms-btn gms-btn-primary gms-btn-full" id="submitBtn" onclick="submitForm()">
+                        <i class="bi bi-check-circle"></i> Save Customer
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/navbar.js"></script>
+<script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    async function init() {
+        await requireAuth();
+        buildNavbar('customers');
+        loadCustomers();
+    }
+
+    // ── VALIDATION ──────────────────────────────
+    function validatePhone(phone) {
+        if (!phone) return { valid:true, message:'' };
+        const cleaned = phone.replace(/[\s\-]/g, '');
+        if (!/^\d+$/.test(cleaned)) return { valid:false, message:'Phone must contain digits only.' };
+        if (!cleaned.startsWith('03')) return { valid:false, message:'Phone must start with 03.' };
+        if (cleaned.length !== 11) return { valid:false, message:`Must be exactly 11 digits. You entered ${cleaned.length}.` };
+        return { valid:true, message:'' };
+    }
+
+    function validateEmail(email) {
+        if (!email) return { valid:true, message:'' };
+        if (!email.includes('@')) return { valid:false, message:'Email must contain "@"' };
+        if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(email))
+            return { valid:false, message:'Invalid email format.' };
+        return { valid:true, message:'' };
+    }
+
+    function formatPhoneInput(input) {
+        let digits = input.value.replace(/\D/g, '');
+        if (digits.length > 11) digits = digits.slice(0, 11);
+        input.value = digits.length > 4 ? digits.slice(0,4) + '-' + digits.slice(4) : digits;
+        validatePhoneLive(input);
+    }
+
+    function validatePhoneLive(input) {
+        const result = validatePhone(input.value.trim());
+        const err = document.getElementById('phoneError');
+        const succ = document.getElementById('phoneSuccess');
+        const hint = document.getElementById('phoneHint');
+        if (!input.value.trim()) {
+            input.classList.remove('is-invalid','is-valid');
+            err.classList.add('d-none'); succ.classList.add('d-none'); hint.classList.remove('d-none');
+            return;
+        }
+        hint.classList.add('d-none');
+        if (result.valid) {
+            input.classList.remove('is-invalid'); input.classList.add('is-valid');
+            err.classList.add('d-none'); succ.classList.remove('d-none');
+        } else {
+            input.classList.remove('is-valid'); input.classList.add('is-invalid');
+            document.getElementById('phoneErrorMsg').textContent = result.message;
+            err.classList.remove('d-none'); succ.classList.add('d-none');
+        }
+    }
+
+    function validateEmailLive(input) {
+        const result = validateEmail(input.value.trim());
+        const err = document.getElementById('emailError');
+        const succ = document.getElementById('emailSuccess');
+        const hint = document.getElementById('emailHint');
+        if (!input.value.trim()) {
+            input.classList.remove('is-invalid','is-valid');
+            err.classList.add('d-none'); succ.classList.add('d-none'); hint.classList.remove('d-none');
+            return;
+        }
+        hint.classList.add('d-none');
+        if (result.valid) {
+            input.classList.remove('is-invalid'); input.classList.add('is-valid');
+            err.classList.add('d-none'); succ.classList.remove('d-none');
+        } else {
+            input.classList.remove('is-valid'); input.classList.add('is-invalid');
+            err.classList.remove('d-none'); succ.classList.add('d-none');
+        }
+    }
+
+    // ── CRUD ────────────────────────────────────
+    async function loadCustomers() {
+        try {
+            const res  = await fetch(`${API_BASE}/customers/`);
+            const data = await res.json();
+            renderTable(data);
+        } catch(e) { showAlert('Failed to load. Make sure Flask is running.', 'danger'); }
+    }
+
+    function renderTable(data) {
+        document.getElementById('totalCount').textContent = `${data.length} records`;
+        const tbody = document.getElementById('customersTableBody');
+        if (!data.length) {
+            tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="bi bi-inbox"></i><p>No customers yet. Add your first one.</p></div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.map(c => `
+            <tr>
+                <td><span class="badge-id">#${c.customer_id}</span></td>
+                <td><strong style="color:var(--text-pri)">${c.customer_name}</strong></td>
+                <td><small style="color:var(--text-sec)">${c.phone || '—'}</small></td>
+                <td><small>${c.email
+                    ? `<span style="color:var(--accent);cursor:pointer;text-decoration:underline"
+                        onclick="copyEmail('${c.email}')" title="Click to copy">
+                        ${c.email} <i class="bi bi-copy" style="font-size:0.7rem"></i>
+                       </span>`
+                    : '<span style="color:var(--text-muted)">—</span>'}</small>
+                </td>
+                <td>${c.city
+                    ? `<span class="gms-badge badge-success"><i class="bi bi-geo-alt"></i> ${c.city}</span>`
+                    : '<span style="color:var(--text-muted)">—</span>'}
+                </td>
+                <td><small style="color:var(--text-muted)">${c.address || '—'}</small></td>
+                <td>
+                    <button class="gms-btn gms-btn-ghost gms-btn-sm gms-btn-icon"
+                        style="margin-right:4px"
+                        onclick='editCustomer(${JSON.stringify(c)})' title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="gms-btn gms-btn-danger gms-btn-sm gms-btn-icon"
+                        onclick="deleteCustomer(${c.customer_id},'${escapeQ(c.customer_name)}')" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>`).join('');
+    }
+
+    async function submitForm() {
+        const id      = document.getElementById('customerId').value;
+        const name    = document.getElementById('customerName').value.trim();
+        const phone   = document.getElementById('customerPhone').value.trim();
+        const email   = document.getElementById('customerEmail').value.trim();
+        const city    = document.getElementById('customerCity').value;
+        const address = document.getElementById('customerAddress').value.trim();
+
+        if (!name) { showAlert('Customer name is required.', 'warning'); return; }
+        const pr = validatePhone(phone);
+        if (!pr.valid) { showAlert(pr.message, 'danger'); return; }
+        const er = validateEmail(email);
+        if (!er.valid) { showAlert(er.message, 'danger'); return; }
+
+        try {
+            const res = await fetch(id ? `${API_BASE}/customers/${id}` : `${API_BASE}/customers/`, {
+                method: id ? 'PUT' : 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({customer_name:name, phone, email, city, address})
+            });
+            if (res.ok) {
+                showAlert(id ? 'Customer updated.' : 'Customer added.', 'success');
+                resetForm(); loadCustomers();
+            } else {
+                const e = await res.json();
+                showAlert(e.error || 'Something went wrong.', 'danger');
+            }
+        } catch(e) { showAlert('Cannot connect to server.', 'danger'); }
+    }
+
+    function editCustomer(c) {
+        document.getElementById('customerId').value      = c.customer_id;
+        document.getElementById('customerName').value    = c.customer_name;
+        document.getElementById('customerPhone').value   = c.phone || '';
+        document.getElementById('customerEmail').value   = c.email || '';
+        document.getElementById('customerCity').value    = c.city || '';
+        document.getElementById('customerAddress').value = c.address || '';
+        validatePhoneLive(document.getElementById('customerPhone'));
+        validateEmailLive(document.getElementById('customerEmail'));
+        document.getElementById('formTitle').innerHTML  = `<i class="bi bi-pencil" style="color:var(--gold)"></i> Edit Customer`;
+        document.getElementById('submitBtn').className  = 'gms-btn gms-btn-warning gms-btn-full';
+        document.getElementById('submitBtn').innerHTML  = `<i class="bi bi-check-circle"></i> Update Customer`;
+        document.getElementById('cancelBtn').classList.remove('d-none');
+        document.getElementById('customerName').focus();
+    }
+
+    async function deleteCustomer(id, name) {
+        if (!confirm(`Delete "${name}"?`)) return;
+        try {
+            const res = await fetch(`${API_BASE}/customers/${id}`, {method:'DELETE'});
+            if (res.ok) { showAlert(`"${name}" deleted.`, 'success'); loadCustomers(); }
+            else showAlert('Cannot delete — customer may have existing orders.', 'danger');
+        } catch(e) { showAlert('Cannot connect to server.', 'danger'); }
+    }
+
+    function resetForm() {
+        ['customerId','customerName','customerPhone','customerEmail','customerAddress'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = '';
+        });
+        document.getElementById('customerCity').value = '';
+        ['customerPhone','customerEmail'].forEach(id => {
+            document.getElementById(id)?.classList.remove('is-valid','is-invalid');
+        });
+        ['phoneError','phoneSuccess','emailError','emailSuccess'].forEach(id =>
+            document.getElementById(id)?.classList.add('d-none'));
+        ['phoneHint','emailHint'].forEach(id =>
+            document.getElementById(id)?.classList.remove('d-none'));
+        document.getElementById('formTitle').innerHTML = `<i class="bi bi-plus-circle"></i> Add New Customer`;
+        document.getElementById('submitBtn').className = 'gms-btn gms-btn-primary gms-btn-full';
+        document.getElementById('submitBtn').innerHTML = `<i class="bi bi-check-circle"></i> Save Customer`;
+        document.getElementById('cancelBtn').classList.add('d-none');
+    }
+
+    function copyEmail(email) {
+        navigator.clipboard.writeText(email).then(() => showAlert(`Email copied: ${email}`, 'success'));
+    }
+
+    function showAlert(msg, type) {
+        const icons = {success:'check-circle', warning:'exclamation-triangle', danger:'x-circle', info:'info-circle'};
+        const box = document.getElementById('alertBox');
+        box.className = `gms-alert ${type}`;
+        box.innerHTML = `<i class="bi bi-${icons[type]||'info-circle'}"></i> ${msg}`;
+        box.classList.remove('d-none');
+        setTimeout(() => box.classList.add('d-none'), 4000);
+    }
+
+    function escapeQ(s) { return s.replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+    init();
+</script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payments — Grocery MS</title>
+    <script>(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('gms-theme')||'dark'); })();</script>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+
+<div id="gms-navbar"></div>
+
+<div class="page-wrap">
+    <div class="page-header animate-in">
+        <h4><i class="bi bi-credit-card"></i> Payments</h4>
+        <p>Record and track customer payments</p>
+    </div>
+
+    <div id="alertBox" class="gms-alert d-none"></div>
+
+    <div class="two-col">
+
+        <!-- LEFT — Payment Records Table -->
+        <div class="g-card animate-in">
+            <div class="g-card-header">
+                <div class="g-card-title"><i class="bi bi-table"></i> Payment Records</div>
+                <span class="gms-badge badge-neutral" id="totalCount">0 records</span>
+            </div>
+            <div style="overflow-x:auto">
+                <table class="g-table">
+                    <thead>
+                        <tr>
+                            <th style="width:60px">ID</th>
+                            <th>Customer</th>
+                            <th>Order</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th style="width:80px">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsTableBody">
+                        <tr><td colspan="6"><div class="empty-state">
+                            <i class="bi bi-hourglass-split"></i><p>Loading...</p>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- RIGHT — Record Payment Form -->
+        <div>
+            <div class="g-card animate-in">
+                <div class="g-card-header">
+                    <div class="g-card-title"><i class="bi bi-plus-circle"></i> Record Payment</div>
+                </div>
+                <div class="g-card-body">
+
+                    <div id="alertBoxForm" class="gms-alert d-none"></div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Order <span style="color:var(--red)">*</span></label>
+                        <select class="gms-input gms-select" id="paymentOrder" onchange="loadOrderDetails()">
+                            <option value="">-- Select Pending Order --</option>
+                        </select>
+                        <span class="gms-hint">Only pending orders shown</span>
+                    </div>
+
+                    <div id="orderInfoBox" class="d-none" style="background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:8px;">
+                            <span style="color:var(--text-muted)">Customer</span>
+                            <span id="orderCustomer" style="color:var(--text-pri); font-weight: 500;"></span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:8px;">
+                            <span style="color:var(--text-muted)">Order Total</span>
+                            <span id="orderTotal" style="color:var(--text-pri); font-weight: 500;"></span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.9rem; border-top: 1px solid var(--border); padding-top: 8px;">
+                            <span style="color:var(--text-muted)">Remaining</span>
+                            <span id="orderRemaining" style="color:var(--accent); font-weight: 600;"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Amount Paid <span style="color:var(--red)">*</span></label>
+                        <div class="gms-input-group">
+                            <span class="input-prefix">PKR</span>
+                            <input type="number" class="gms-input" id="paymentAmount" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Payment Method <span style="color:var(--red)">*</span></label>
+                        <select class="gms-input gms-select" id="paymentMethod">
+                            <option value="">-- Select Method --</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Credit Card">Credit Card</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Mobile Wallet">Mobile Wallet</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Reference/Notes (optional)</label>
+                        <input type="text" class="gms-input" id="paymentReference" placeholder="e.g. Transaction ID, cheque number">
+                    </div>
+
+                    <button class="gms-btn gms-btn-primary gms-btn-full" onclick="submitPayment()">
+                        <i class="bi bi-check-circle"></i> Record Payment
+                    </button>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/navbar.js"></script>
+<script>
+    const API_BASE = 'http://localhost:5000/api';
+    let pendingOrders = [];
+    let selectedOrder = null;
+
+    async function init() {
+        await requireAuth();
+        buildNavbar('payments');
+        await loadPayments();
+        await loadPendingOrders();
+    }
+
+    async function loadPendingOrders() {
+        try {
+            const res = await fetch(`${API_BASE}/orders/?status=pending`);
+            pendingOrders = await res.json();
+            const select = document.getElementById('paymentOrder');
+            select.innerHTML = '<option value="">-- Select Pending Order --</option>';
+            pendingOrders.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.order_id;
+                opt.textContent = `Order #${o.order_id} - ${o.customer_name} (PKR ${o.total_amount})`;
+                opt.dataset.order = JSON.stringify(o);
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            showAlert('Failed to load pending orders', 'danger');
+        }
+    }
+
+    function loadOrderDetails() {
+        const select = document.getElementById('paymentOrder');
+        if (!select.value) {
+            document.getElementById('orderInfoBox').classList.add('d-none');
+            selectedOrder = null;
+            return;
+        }
+
+        const opt = select.querySelector(`option[value="${select.value}"]`);
+        selectedOrder = JSON.parse(opt.dataset.order);
+
+        document.getElementById('orderCustomer').textContent = selectedOrder.customer_name;
+        document.getElementById('orderTotal').textContent = `PKR ${selectedOrder.total_amount.toFixed(2)}`;
+        document.getElementById('orderRemaining').textContent = `PKR ${(selectedOrder.total_amount - (selectedOrder.paid_amount || 0)).toFixed(2)}`;
+        document.getElementById('paymentAmount').value = (selectedOrder.total_amount - (selectedOrder.paid_amount || 0)).toFixed(2);
+        document.getElementById('orderInfoBox').classList.remove('d-none');
+    }
+
+    async function loadPayments() {
+        try {
+            const res = await fetch(`${API_BASE}/payments/`);
+            const payments = await res.json();
+            const tbody = document.getElementById('paymentsTableBody');
+            tbody.innerHTML = '';
+            document.getElementById('totalCount').textContent = `${payments.length} records`;
+
+            if (payments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="bi bi-inbox"></i><p>No payment records</p></div></td></tr>';
+                return;
+            }
+
+            payments.forEach(p => {
+                const date = new Date(p.payment_date).toLocaleDateString();
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><span class="badge-id">#${p.payment_id}</span></td>
+                    <td>${p.customer_name}</td>
+                    <td>#${p.order_id}</td>
+                    <td><strong>PKR ${p.amount.toFixed(2)}</strong></td>
+                    <td><small>${p.payment_method}</small></td>
+                    <td><small>${date}</small></td>
+                `;
+                tbody.appendChild(row);
+            });
+        } catch (e) {
+            showAlert('Failed to load payments', 'danger');
+        }
+    }
+
+    async function submitPayment() {
+        const orderId = document.getElementById('paymentOrder').value;
+        const amount = parseFloat(document.getElementById('paymentAmount').value);
+        const method = document.getElementById('paymentMethod').value;
+        const reference = document.getElementById('paymentReference').value;
+
+        if (!orderId || !amount || !method) {
+            showAlert('Please fill all required fields', 'danger');
+            return;
+        }
+
+        if (amount <= 0) {
+            showAlert('Amount must be greater than 0', 'danger');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/payments/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: orderId,
+                    amount,
+                    payment_method: method,
+                    reference
+                })
+            });
+            if (!res.ok) throw new Error('Failed');
+            showAlert('Payment recorded successfully!', 'success');
+            document.getElementById('paymentOrder').value = '';
+            document.getElementById('paymentAmount').value = '';
+            document.getElementById('paymentMethod').value = '';
+            document.getElementById('paymentReference').value = '';
+            document.getElementById('orderInfoBox').classList.add('d-none');
+            await loadPayments();
+            await loadPendingOrders();
+        } catch (e) {
+            showAlert('Failed to record payment', 'danger');
+        }
+    }
+
+    function showAlert(msg, type = 'info') {
+        const box = document.getElementById('alertBox');
+        box.className = `gms-alert ${type} animate-in`;
+        box.innerHTML = `<i class="bi bi-info-circle"></i> ${msg}`;
+        box.classList.remove('d-none');
+        setTimeout(() => box.classList.add('d-none'), 3000);
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>

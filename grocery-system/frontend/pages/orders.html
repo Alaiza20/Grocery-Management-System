@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders — Grocery MS</title>
+    <script>(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('gms-theme')||'dark'); })();</script>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+
+<div id="gms-navbar"></div>
+
+<div class="page-wrap">
+    <div class="page-header animate-in">
+        <h4><i class="bi bi-cart-check"></i> Orders</h4>
+        <p>Create and manage customer orders — track status and delivery details</p>
+    </div>
+
+    <div id="alertBox" class="gms-alert d-none"></div>
+
+    <div class="two-col">
+
+        <!-- LEFT — Orders Table -->
+        <div class="g-card animate-in">
+            <div class="g-card-header">
+                <div class="g-card-title"><i class="bi bi-table"></i> All Orders</div>
+                <span class="gms-badge badge-neutral" id="totalCount">0 records</span>
+            </div>
+            <div style="overflow-x:auto">
+                <table class="g-table">
+                    <thead>
+                        <tr>
+                            <th style="width:60px">ID</th>
+                            <th>Customer</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th style="width:60px">View</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody">
+                        <tr><td colspan="6"><div class="empty-state">
+                            <i class="bi bi-hourglass-split"></i><p>Loading...</p>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- RIGHT — New Order Form -->
+        <div>
+            <div class="g-card animate-in">
+                <div class="g-card-header">
+                    <div class="g-card-title"><i class="bi bi-plus-circle"></i> Place New Order</div>
+                </div>
+                <div class="g-card-body">
+
+                    <div id="alertBoxForm" class="gms-alert d-none"></div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Customer <span style="color:var(--red)">*</span></label>
+                        <select class="gms-input gms-select" id="orderCustomer">
+                            <option value="">-- Select Customer --</option>
+                        </select>
+                        <span class="gms-hint"><a href="customers.html" target="_blank" style="color:var(--accent)">Add customer</a></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Notes (optional)</label>
+                        <input type="text" class="gms-input" id="orderNotes" placeholder="e.g. Home delivery, urgent">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="gms-label">Items <span style="color:var(--red)">*</span></label>
+                        <div id="productRowsContainer"></div>
+                        <button class="gms-btn gms-btn-ghost gms-btn-sm" style="margin-top:8px" onclick="addProductRow()">
+                            <i class="bi bi-plus-circle"></i> Add Item
+                        </button>
+                    </div>
+
+                    <div style="background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin: 16px 0;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:8px; color:var(--text-muted)">
+                            <span>Subtotal</span><span id="itemsSubtotal">PKR 0.00</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:8px; color:var(--text-muted)">
+                            <span><i class="bi bi-truck"></i> Delivery</span><span id="deliveryAmount">PKR 150.00</span>
+                        </div>
+                        <div style="border-top: 1px solid var(--border); padding-top: 8px; display:flex; justify-content:space-between; font-weight:600; color:var(--text-pri)">
+                            <span>Total</span><span id="orderTotal">PKR 150.00</span>
+                        </div>
+                    </div>
+
+                    <button class="gms-btn gms-btn-primary gms-btn-full" onclick="submitOrder()">
+                        <i class="bi bi-check-circle"></i> Place Order
+                    </button>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/navbar.js"></script>
+<script>
+    const API_BASE = 'http://localhost:5000/api';
+    const DELIVERY_CHARGE = 150;
+    const FREE_DELIVERY_MIN = 3000;
+
+    let productsList = [];
+    let rowCounter = 0;
+    let currentOrderId = null;
+
+    async function init() {
+        await requireAuth();
+        buildNavbar('orders');
+        await loadDropdowns();
+        await loadOrders();
+        addProductRow();
+    }
+
+    async function loadDropdowns() {
+        try {
+            const [customers, products] = await Promise.all([
+                fetch(`${API_BASE}/customers/`).then(r => r.json()),
+                fetch(`${API_BASE}/products/`).then(r => r.json())
+            ]);
+            productsList = products;
+            const custSel = document.getElementById('orderCustomer');
+            customers.forEach(c => {
+                const o = document.createElement('option');
+                o.value = c.customer_id;
+                o.textContent = `${c.customer_name} — ${c.phone || 'N/A'}`;
+                custSel.appendChild(o);
+            });
+        } catch (e) {
+            showAlert('Failed to load customers and products', 'danger');
+        }
+    }
+
+    async function loadOrders() {
+        try {
+            const res = await fetch(`${API_BASE}/orders/`);
+            const orders = await res.json();
+            const tbody = document.getElementById('ordersTableBody');
+            tbody.innerHTML = '';
+            document.getElementById('totalCount').textContent = `${orders.length} records`;
+
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="bi bi-inbox"></i><p>No orders yet</p></div></td></tr>';
+                return;
+            }
+
+            orders.forEach(o => {
+                const row = document.createElement('tr');
+                const date = new Date(o.order_date).toLocaleDateString();
+                row.innerHTML = `
+                    <td><span class="badge-id">#${o.order_id}</span></td>
+                    <td>${o.customer_name}</td>
+                    <td>PKR ${o.total_amount.toFixed(2)}</td>
+                    <td><span class="pill pill-${o.status.toLowerCase()}">${o.status}</span></td>
+                    <td><small>${date}</small></td>
+                    <td><button class="gms-card-action" onclick="viewOrder(${o.order_id})">View</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+        } catch (e) {
+            showAlert('Failed to load orders', 'danger');
+        }
+    }
+
+    function addProductRow() {
+        const container = document.getElementById('productRowsContainer');
+        rowCounter++;
+        const row = document.createElement('div');
+        row.id = `row-${rowCounter}`;
+        row.style.marginBottom = '8px';
+        row.innerHTML = `
+            <div style="display:flex; gap:8px;">
+                <select class="gms-input gms-select" style="flex:1" onchange="updateTotals()">
+                    <option value="">Select product</option>
+                    ${productsList.map(p => `<option value="${p.product_id}" data-price="${p.price}">${p.product_name}</option>`).join('')}
+                </select>
+                <input type="number" class="gms-input" style="width:80px" min="1" value="1" onchange="updateTotals()" placeholder="Qty">
+                <button class="gms-btn gms-btn-danger gms-btn-icon" onclick="removeProductRow(${rowCounter})"><i class="bi bi-trash"></i></button>
+            </div>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeProductRow(id) {
+        const row = document.getElementById(`row-${id}`);
+        if (row) row.remove();
+        updateTotals();
+    }
+
+    function updateTotals() {
+        let subtotal = 0;
+        const container = document.getElementById('productRowsContainer');
+        container.querySelectorAll('select').forEach((sel, idx) => {
+            const qty = sel.parentElement.querySelector('input[type="number"]').value || 0;
+            const option = sel.querySelector(`option[value="${sel.value}"]`);
+            if (option && option.dataset.price) {
+                subtotal += parseFloat(option.dataset.price) * parseInt(qty);
+            }
+        });
+        const delivery = subtotal >= FREE_DELIVERY_MIN ? 0 : DELIVERY_CHARGE;
+        document.getElementById('itemsSubtotal').textContent = `PKR ${subtotal.toFixed(2)}`;
+        document.getElementById('deliveryAmount').textContent = `PKR ${delivery.toFixed(2)}`;
+        document.getElementById('orderTotal').textContent = `PKR ${(subtotal + delivery).toFixed(2)}`;
+    }
+
+    async function submitOrder() {
+        const custId = document.getElementById('orderCustomer').value;
+        const notes = document.getElementById('orderNotes').value;
+
+        if (!custId) {
+            showAlert('Please select a customer', 'danger');
+            return;
+        }
+
+        const items = [];
+        const container = document.getElementById('productRowsContainer');
+        container.querySelectorAll('select').forEach((sel) => {
+            const qty = sel.parentElement.querySelector('input[type="number"]').value;
+            if (sel.value && qty > 0) {
+                items.push({ product_id: sel.value, quantity: parseInt(qty) });
+            }
+        });
+
+        if (items.length === 0) {
+            showAlert('Please add at least one item', 'danger');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/orders/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customer_id: custId, notes, items })
+            });
+            if (!res.ok) throw new Error('Failed');
+            showAlert('Order placed successfully!', 'success');
+            document.getElementById('orderNotes').value = '';
+            document.getElementById('orderCustomer').value = '';
+            document.getElementById('productRowsContainer').innerHTML = '';
+            await loadOrders();
+            addProductRow();
+        } catch (e) {
+            showAlert('Failed to place order', 'danger');
+        }
+    }
+
+    function viewOrder(orderId) {
+        showAlert('View order functionality coming soon', 'info');
+    }
+
+    function showAlert(msg, type = 'info') {
+        const box = document.getElementById('alertBox');
+        box.className = `gms-alert ${type} animate-in`;
+        box.innerHTML = `<i class="bi bi-info-circle"></i> ${msg}`;
+        box.classList.remove('d-none');
+        setTimeout(() => box.classList.add('d-none'), 3000);
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
